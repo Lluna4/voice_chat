@@ -57,17 +57,19 @@ void sound_recieve()
         return ;
     }
     int lastindex = index;
+    int bytes_received = recv(client_socket, buffer, BUFFER_SIZE * 2, 0);
+    std::cout << waveOutPrepareHeader(_audioOut, &_audioHeader, bytes_received) << " ";
     while (1)
     {
-        int bytes_received = recv(client_socket, buffer, BUFFER_SIZE * 2, 0);
-        std::cout << waveOutPrepareHeader(_audioOut, &_audioHeader, bytes_received) << " ";
         memcpy(_audioHeader.lpData, buffer, BUFFER_SIZE * 2);
         lastindex = index;
         MMRESULT res = waveOutWrite(_audioOut, &_audioHeader, bytes_received);
         if (res == 0)
         {
+            bytes_received = recv(client_socket, buffer, BUFFER_SIZE * 2, 0);
+            std::cout << waveOutPrepareHeader(_audioOut, &_audioHeader, bytes_received) << " ";
             while (lastindex == index)
-                1 + 1; //TODO load next buffer
+                1 + 1;
         }
     }
 }
