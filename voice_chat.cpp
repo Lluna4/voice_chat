@@ -13,8 +13,64 @@
 
 const std::string SERVER_IP = "127.0.0.1";
 const int BUFFER_SIZE = 8192;
-
+HWAVEOUT hwo;
+UINT msg = WOM_DONE;
 SOCKET client_socket;
+int index = 0;
+
+void CALLBACK waveOutProc(HWAVEOUT  hwo, UINT uMsg, DWORD_PTR dwInstance, DWORD_PTR dwParam1, DWORD_PTR dwParam2)
+{
+    msg = uMsg;
+    std::cout << "changed to " << uMsg << std::endl;
+    index++;
+}
+
+void sound_recieve()
+{
+    LPSTR buffer = (LPSTR)calloc(BUFFER_SIZE * 2, sizeof(LPSTR));
+    WAVEHDR       _audioHeader;
+    HWAVEOUT      _audioOut     = 0;
+
+    WAVEFORMATEX wfx;
+    wfx.wFormatTag = WAVE_FORMAT_PCM;
+    wfx.nChannels = 2;
+    wfx.nSamplesPerSec = 16000;
+    wfx.nAvgBytesPerSec = 16000 * 2 * sizeof(short);
+    wfx.nBlockAlign = 2 * sizeof(short);
+    wfx.wBitsPerSample = 16;
+    wfx.cbSize = 0; 
+
+    _audioHeader.dwBufferLength  = BUFFER_SIZE * 2;
+    _audioHeader.lpData          = (LPSTR)calloc(BUFFER_SIZE * 2, sizeof(LPSTR));
+    _audioHeader.dwBytesRecorded = 0;
+    _audioHeader.dwUser          = 0;
+    _audioHeader.dwFlags         = 0;
+    _audioHeader.dwLoops         = 0;
+    _audioHeader.lpNext          = NULL;
+    _audioHeader.reserved        = 0;
+    MMRESULT result = waveOutOpen(&_audioOut, WAVE_MAPPER, &wfx, (DWORD_PTR)&waveOutProc, 0, CALLBACK_FUNCTION);
+    if (result != MMSYSERR_NOERROR)
+    {
+        std::cerr << "Failed to open audio output device." << std::endl;
+        closesocket(client_socket);
+        WSACleanup();
+        return ;
+    }
+    int lastindex = index;
+    while (1)
+    {
+        int bytes_received = recv(client_socket, buffer, BUFFER_SIZE * 2, 0);
+        std::cout << waveOutPrepareHeader(_audioOut, &_audioHeader, bytes_received) << " ";
+        memcpy(_audioHeader.lpData, buffer, BUFFER_SIZE * 2);
+        lastindex = index;
+        MMRESULT res = waveOutWrite(_audioOut, &_audioHeader, bytes_received);
+        if (res == 0)
+        {
+            while (lastindex == index)
+                1 + 1; //TODO load next buffer
+        }
+    }
+}
 
 void CALLBACK WaveInProc(HWAVEIN hwi, UINT uMsg, DWORD_PTR dwInstance, DWORD_PTR dwParam1, DWORD_PTR dwParam2)
 {
@@ -74,7 +130,11 @@ int main()
         waveInAddBuffer(hWaveIn, &waveHdr, sizeof(WAVEHDR));
 
         waveInStart(hWaveIn);
+
+        std::thread recv_sounds(sound_recieve);
+        recv_sounds.detach();
         
+
         std::cout << "Press Enter to exit..." << std::endl;
         std::cin.get();
 
@@ -93,13 +153,3 @@ int main()
         std::cerr << "Failed to open audio input device." << std::endl;
     }
 }
-
-// Ejecutar programa: Ctrl + F5 o menú Depurar > Iniciar sin depurar
-// Depurar programa: F5 o menú Depurar > Iniciar depuración
-
-// Sugerencias para primeros pasos: 1. Use la ventana del Explorador de soluciones para agregar y administrar archivos
-//   2. Use la ventana de Team Explorer para conectar con el control de código fuente
-//   3. Use la ventana de salida para ver la salida de compilación y otros mensajes
-//   4. Use la ventana Lista de errores para ver los errores
-//   5. Vaya a Proyecto > Agregar nuevo elemento para crear nuevos archivos de código, o a Proyecto > Agregar elemento existente para agregar archivos de código existentes al proyecto
-//   6. En el futuro, para volver a abrir este proyecto, vaya a Archivo > Abrir > Proyecto y seleccione el archivo .sln

@@ -16,7 +16,7 @@ const int BUFFER_SIZE = 8192 * 2;
 
 std::vector<int> clients;
 
-void manage_server(int socket)
+void manage_server(int socket, int number)
 {
     char *buffer = (char *)calloc(BUFFER_SIZE, sizeof(char));
     int bytes_read = 0;
@@ -30,13 +30,8 @@ void manage_server(int socket)
         }
         if (buffer)
         {
-            std::ofstream outputFile("captured_audio.raw", std::ios::binary | std::ios::app); // Open the file in binary append mode
-            if (outputFile.is_open())
-            {
-                // Write the captured audio data to the file
-                outputFile.write(buffer, bytes_read);
-                outputFile.close();
-            }
+            int bytes_send = send(socket, buffer, BUFFER_SIZE, 0);
+            std::cout << "(" << bytes_send << ")" << std::endl;
         }
         memset(buffer, 0, BUFFER_SIZE);
     }
@@ -71,8 +66,8 @@ int main()
         listen(sock, 5);
         int new_socket = accept(sock, (struct sockaddr*)&address, &addrlen);
         std::cout << new_socket << std::endl;
+        std::thread man_sv(manage_server, new_socket, clients.size());
         clients.push_back(new_socket);
-        std::thread man_sv(manage_server, new_socket);
         man_sv.detach();
     }
 }
